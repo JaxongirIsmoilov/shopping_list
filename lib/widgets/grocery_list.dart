@@ -17,11 +17,17 @@ class GroceryList extends StatefulWidget {
 class _GroceryListState extends State<GroceryList> {
   List<GroceryItem> _groceryItems = [];
   var _isLoading = true;
+  String? _error;
 
   Future<void> _loadItems() async {
     final url = Uri.https(
         'livetest-fb200-default-rtdb.firebaseio.com', 'shopping-list.json');
     final response = await http.get(url);
+    if (response.statusCode >= 400) {
+      setState(() {
+        _error = 'Failed to fetch data. Please try again later';
+      });
+    }
     final Map<String, dynamic> listData = json.decode(response.body);
     print(listData);
     final List<GroceryItem> loadedItemsList = [];
@@ -61,10 +67,15 @@ class _GroceryListState extends State<GroceryList> {
     });
   }
 
-  void _removeItem(GroceryItem groceryItem) {
-    setState(() {
-      _groceryItems.remove(groceryItem);
-    });
+  Future<void> _removeItem(GroceryItem groceryItem) async {
+    final url = Uri.https('livetest-fb200-default-rtdb.firebaseio.com',
+        'shopping-list/${groceryItem.id}.json');
+    final res = await http.delete(url);
+    if (res.statusCode == 200) {
+      setState(() {
+        _groceryItems.remove(groceryItem);
+      });
+    }
   }
 
   @override
@@ -88,7 +99,7 @@ class _GroceryListState extends State<GroceryList> {
       );
     }
 
-    if(_groceryItems.isEmpty){
+    if (_groceryItems.isNotEmpty) {
       content = ListView.builder(
         itemCount: _groceryItems.length,
         itemBuilder: (ctx, index) => Dismissible(
@@ -110,17 +121,22 @@ class _GroceryListState extends State<GroceryList> {
         ),
       );
     }
+
+    if (_error != null) {
+      content = Center(
+        child: Text(_error!),
+      );
+    }
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Your Groceries'),
-        actions: [
-          IconButton(
-            onPressed: _addNewItem,
-            icon: const Icon(Icons.add),
-          )
-        ],
-      ),
-      body: content
-    );
+        appBar: AppBar(
+          title: const Text('Your Groceries'),
+          actions: [
+            IconButton(
+              onPressed: _addNewItem,
+              icon: const Icon(Icons.add),
+            )
+          ],
+        ),
+        body: content);
   }
 }
